@@ -1,0 +1,75 @@
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input
+
+# 1. Load dataset
+train_data = pd.read_csv("dataset/sign_mnist_train.csv")
+test_data = pd.read_csv("dataset/sign_mnist_test.csv")
+
+# 2. Separate features and labels
+X_train = train_data.drop('label', axis=1)
+y_train = train_data['label']
+
+X_test = test_data.drop('label', axis=1)
+y_test = test_data['label']
+
+# 3. Normalize pixel values
+X_train = X_train / 255.0
+X_test = X_test / 255.0
+
+# 4. Convert into NumPy arrays
+X_train = X_train.to_numpy()
+X_test = X_test.to_numpy()
+
+# 5. Build Feedforward Neural Network
+model = Sequential([
+    Input(shape=(784,)),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(25, activation='softmax')
+])
+
+# 6. Compile model
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 7. Train model
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=10,
+    batch_size=32
+)
+
+# 8. Evaluate model
+test_loss, test_accuracy = model.evaluate(X_test, y_test)
+
+print("Testing Accuracy:", test_accuracy * 100, "%")
+
+# 9. Display training accuracy graph
+plt.plot(history.history['accuracy'])
+plt.title('Training Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.show()
+
+# 10. Display loss graph
+plt.plot(history.history['loss'])
+plt.title('Training Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.show()
+
+# 11. Display training and testing accuracy
+train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=0)
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+
+print("Training Accuracy:", train_accuracy * 100, "%")
+print("Testing Accuracy:", test_accuracy * 100, "%")
