@@ -1,0 +1,91 @@
+
+# 1. Import libraries
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Embedding, GlobalAveragePooling1D, Dense
+
+# 2. Prepare a small corpus
+corpus = [
+    "the cat sits on the mat",
+    "the dog sits on the floor",
+    "the cat likes milk",
+    "the dog likes bones",
+    "the cat and dog are friends"
+] * 20
+
+# 3. Create vocabulary
+words = " ".join(corpus).split()
+
+vocab = sorted(set(words))
+
+word_to_index = {word: i for i, word in enumerate(vocab)}
+index_to_word = {i: word for word, i in word_to_index.items()}
+
+vocab_size = len(vocab)
+
+print("Vocabulary:", vocab)
+print("Vocabulary Size:", vocab_size)
+
+# 4. Generate context-target training samples
+window_size = 2
+
+contexts = []
+targets = []
+
+for sentence in corpus:
+    tokens = sentence.split()
+
+    for i in range(window_size, len(tokens) - window_size):
+
+        context = (
+            tokens[i-2:i] +
+            tokens[i+1:i+3]
+        )
+
+        target = tokens[i]
+
+        contexts.append([word_to_index[w] for w in context])
+        targets.append(word_to_index[target])
+
+X = np.array(contexts)
+y = np.array(targets)
+
+print("Context Samples:", X.shape)
+print("Target Samples:", y.shape)
+
+# 5. Build CBOW model
+embedding_dim = 50
+
+model = Sequential([
+    Input(shape=(4,)),
+    Embedding(vocab_size, embedding_dim),
+    GlobalAveragePooling1D(),
+    Dense(vocab_size, activation='softmax')
+])
+
+# 6. Compile the model
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 7. Train the model
+model.fit(X, y, epochs=100, batch_size=16)
+
+# 8. Predict the target word
+test_context = ["the", "cat", "on", "the"]
+
+context_ids = np.array([
+    [word_to_index[w] for w in test_context]
+])
+
+prediction = model.predict(context_ids)
+
+predicted_index = np.argmax(prediction[0])
+
+predicted_word = index_to_word[predicted_index]
+
+print("Context Words:", test_context)
+print("Predicted Target Word:", predicted_word)
