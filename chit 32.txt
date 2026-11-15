@@ -1,0 +1,156 @@
+
+# 1. Import libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+# 2. Load ECG dataset
+data = pd.read_csv("ecg.csv", header=None)
+
+# Separate ECG signals and labels
+X = data.iloc[:, :-1].values
+y = data.iloc[:, -1].values.astype(int)
+
+print("Dataset Shape:", X.shape)
+print("Labels:", np.unique(y, return_counts=True))
+
+# 3. Split data into training and testing
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# Select only normal ECG signals for training
+X_normal = X_train[y_train == 1]
+
+# Split normal data into training and validation
+X_train_normal, X_val = train_test_split(
+    X_normal, test_size=0.1, random_state=42
+)
+
+# Normalize ECG signals
+scaler = StandardScaler()
+
+X_train_normal = scaler.fit_transform(X_train_normal)
+X_val = scaler.transform(X_val)
+X_test = scaler.transform(X_test)
+
+# 4. Build Autoencoder model
+input_dim = X_train_normal.shape[1]
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(input_dim,)),
+
+    # Encoder
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
+
+    # Decoder
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(input_dim, activation='linear')
+])
+
+# 5. Compile the model
+model.compile(
+    optimizer='adam',
+    loss='mse',
+    metrics=['mae']
+)
+
+# 6. Train the Autoencoder using normal ECG signals
+history = model.fit(
+    X_train_normal,
+    X_train_normal,
+    epochs=20,
+    batch_size=32,
+    validation_data=(X_val, X_val)
+)
+
+# 7. Calculate reconstruction errors on validation data
+val_predictions = model.predict(X_val)
+
+val_errors = np.mean(
+    np.square(X_val - val_predictions), axis=1
+)
+
+# Set anomaly threshold using 95th percentile
+threshold = np.percentile(val_errors, 95)
+
+print("Anomaly Threshold:", threshold)
+
+# 8. Detect anomalies in test data
+test_predictions = model.predict(X_test)
+
+reconstruction_errors = np.mean(
+    np.square(X_test - test_predictions), axis=1
+)
+
+# Classify signals based on reconstruction error
+y_pred = (reconstruction_errors > threshold).astype(int)
+
+# 9. Display reconstruction errors and results
+for i in range(10):
+    result = "Abnormal" if y_pred[i] == 1 else "Normal"
+
+    print(
+        "ECG:", i,
+        "| Actual Label:", y_test[i],
+        "| Reconstruction Error:", reconstruction_errors[i],
+        "| Detected:", result
+    )
+
+# 10. Plot original and reconstructed ECG signals
+normal_index = np.where(y_test == 1)[0][0]
+abnormal_index = np.where(y_test == 0)[0][0]
+
+for i in [normal_index, abnormal_index]:
+
+    plt.figure(figsize=(10, 4))
+
+    plt.plot(X_test[i], label='Original ECG')
+    plt.plot(test_predictions[i], label='Reconstructed ECG')
+
+    plt.title(
+        f"Actual: {'Normal' if y_test[i] == 1 else 'Abnormal'} | "
+        f"Detected: {'Abnormal' if y_pred[i] == 1 else 'Normal'}"
+    )
+
+    plt.xlabel("Time Steps")
+    plt.ylabel("ECG Signal")
+    plt.legend()
+    plt.show()
+
+# 11. Plot reconstruction errors
+plt.figure(figsize=(10, 4))
+
+plt.plot(reconstruction_errors, label='Reconstruction Error')
+plt.axhline(
+    y=threshold,
+    color='red',
+    linestyle='--',
+    label='Anomaly Threshold'
+)
+
+plt.title("ECG Anomaly Detection")
+plt.xlabel("ECG Record")
+plt.ylabel("Reconstruction Error")
+plt.legend()
+plt.show()
+
+# 12. Display confusion matrix
+cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=['Normal', 'Abnormal']
+)
+
+disp.plot(cmap='Blues')
+plt.title("ECG Anomaly Detection Confusion Matrix")
+plt.show()
