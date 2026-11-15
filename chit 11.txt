@@ -1,0 +1,61 @@
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+# 1. Load dataset
+train_data = pd.read_csv("fashion-mnist_train.csv")
+test_data = pd.read_csv("fashion-mnist_test.csv")
+
+# 2. Separate features and labels
+X_train = train_data.drop('label', axis=1)
+y_train = train_data['label']
+
+X_test = test_data.drop('label', axis=1)
+y_test = test_data['label']
+
+# 3. Normalize pixel values
+X_train = X_train / 255.0
+X_test = X_test / 255.0
+
+# 4. Convert to NumPy arrays
+X_train = X_train.to_numpy()
+X_test = X_test.to_numpy()
+
+# 5. Build Feedforward Neural Network
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(784,)),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+# 6. Compile the model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# 7. Train the model
+model.fit(X_train, y_train, epochs=5, batch_size=32)
+
+# 8. Predict test images
+predictions = model.predict(X_test)
+
+# 9. Class names
+class_names = [
+    'T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+    'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'
+]
+
+# 10. Display five test images
+for i in range(5):
+    actual = class_names[y_test.iloc[i]]
+    predicted = class_names[np.argmax(predictions[i])]
+
+    image = X_test[i].reshape(28, 28)
+
+    plt.imshow(image, cmap='gray')
+    plt.title("Actual: " + actual + " | Predicted: " + predicted)
+    plt.axis('off')
+    plt.show()
