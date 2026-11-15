@@ -1,0 +1,69 @@
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Input
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+# 1. Load dataset
+train_data = pd.read_csv("dataset/sign_mnist_train.csv")
+test_data = pd.read_csv("dataset/sign_mnist_test.csv")
+
+# 2. Separate features and labels
+X_train = train_data.drop('label', axis=1)
+y_train = train_data['label']
+
+X_test = test_data.drop('label', axis=1)
+y_test = test_data['label']
+
+# 3. Normalize pixel values
+X_train = X_train / 255.0
+X_test = X_test / 255.0
+
+# 4. Convert into NumPy arrays
+X_train = X_train.to_numpy()
+X_test = X_test.to_numpy()
+
+# 5. Build FNN model
+model = Sequential([
+    Input(shape=(784,)),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(25, activation='softmax')
+])
+
+# 6. Compile model
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+
+# 7. Train model
+model.fit(X_train, y_train, epochs=10, batch_size=32)
+
+# 8. Evaluate model
+loss, accuracy = model.evaluate(X_test, y_test)
+print("Test Accuracy:", accuracy * 100, "%")
+
+# 9. Predict test images
+predictions = model.predict(X_test)
+y_pred = np.argmax(predictions, axis=1)
+
+# 10. Generate confusion matrix
+cm = confusion_matrix(y_test, y_pred, labels=range(25))
+
+# 11. Display confusion matrix
+class_names = list("ABCDEFGHI") + ["J*"] + list("KLMNOPQRSTUVWXY")
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=class_names
+)
+
+disp.plot(cmap='Blues', xticks_rotation=90)
+plt.title("Confusion Matrix")
+plt.show()
