@@ -1,0 +1,79 @@
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Input, Embedding, GlobalAveragePooling1D, Dense
+
+# 1. Small text corpus
+corpus = [
+    "the cat sits on the mat",
+    "the dog sits on the floor",
+    "the cat likes milk",
+    "the dog likes bones",
+    "the cat and dog are friends"
+] * 20
+
+# 2. Create vocabulary
+words = " ".join(corpus).split()
+vocab = sorted(set(words))
+
+word_to_index = {word: i for i, word in enumerate(vocab)}
+index_to_word = {i: word for word, i in word_to_index.items()}
+
+vocab_size = len(vocab)
+
+# 3. Generate context and target pairs
+window_size = 2
+contexts = []
+targets = []
+
+for sentence in corpus:
+    tokens = sentence.split()
+
+    for i in range(window_size, len(tokens) - window_size):
+        context = tokens[i-window_size:i] + tokens[i+1:i+window_size+1]
+        target = tokens[i]
+
+        contexts.append([word_to_index[w] for w in context])
+        targets.append(word_to_index[target])
+
+X = np.array(contexts)
+y = np.array(targets)
+
+# 4. Build CBOW model
+embedding_dim = 50
+
+model = Sequential([
+    Input(shape=(4,)),
+    Embedding(vocab_size, embedding_dim),
+    GlobalAveragePooling1D(),
+    Dense(vocab_size, activation='softmax')
+])
+
+# 5. Compile the model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# 6. Train the model
+model.fit(X, y, epochs=100, batch_size=16)
+
+# 7. Display learned word embeddings
+embeddings = model.layers[0].get_weights()[0]
+
+print("\nLearned Word Embeddings:")
+for i, word in index_to_word.items():
+    print(word, ":", embeddings[i][:5])
+
+# 8. Predict a word using context words
+test_context = ["the", "sits", "on", "the"]
+
+context_ids = np.array([
+    [word_to_index[w] for w in test_context]
+])
+
+prediction = model.predict(context_ids)
+predicted_index = np.argmax(prediction[0])
+
+print("\nContext Words:", test_context)
+print("Predicted Word:", index_to_word[predicted_index])
