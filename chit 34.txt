@@ -1,0 +1,116 @@
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix
+
+# 1. Load dataset
+data = pd.read_csv("creditcard.csv")
+
+# 2. Separate features and labels
+X = data.drop('Class', axis=1)
+y = data['Class']
+
+# 3. Split training and testing data
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 4. Use only normal transactions for training
+X_train_normal = X_train[y_train == 0]
+
+# Split normal training data for validation
+X_train_normal, X_val_normal = train_test_split(
+    X_train_normal, test_size=0.2, random_state=42
+)
+
+# 5. Normalize features
+scaler = StandardScaler()
+
+X_train_normal = scaler.fit_transform(X_train_normal)
+X_val_normal = scaler.transform(X_val_normal)
+X_test = scaler.transform(X_test)
+
+# 6. Build Autoencoder model
+input_dim = X_train_normal.shape[1]
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(input_dim,)),
+
+    # Encoder
+    tf.keras.layers.Dense(16, activation='relu'),
+    tf.keras.layers.Dense(8, activation='relu'),
+    tf.keras.layers.Dense(4, activation='relu'),
+
+    # Decoder
+    tf.keras.layers.Dense(8, activation='relu'),
+    tf.keras.layers.Dense(16, activation='relu'),
+    tf.keras.layers.Dense(input_dim, activation='linear')
+])
+
+# 7. Compile the model
+model.compile(optimizer='adam',
+              loss='mse',
+              metrics=['mae'])
+
+# 8. Train Autoencoder using normal transactions
+history = model.fit(
+    X_train_normal, X_train_normal,
+    epochs=10,
+    batch_size=256,
+    validation_data=(X_val_normal, X_val_normal)
+)
+
+# 9. Calculate validation reconstruction errors
+val_predictions = model.predict(X_val_normal)
+
+val_errors = np.mean(
+    np.square(X_val_normal - val_predictions), axis=1
+)
+
+# 10. Select anomaly threshold
+threshold = np.percentile(val_errors, 95)
+
+print("Anomaly Threshold:", threshold)
+
+# 11. Calculate test reconstruction errors
+test_predictions = model.predict(X_test)
+
+test_errors = np.mean(
+    np.square(X_test - test_predictions), axis=1
+)
+
+# 12. Classify normal and fraudulent transactions
+y_pred = (test_errors > threshold).astype(int)
+
+# 13. Display reconstruction errors
+print("\nFirst 10 Reconstruction Errors:")
+print(test_errors[:10])
+
+# 14. Display detected fraudulent transactions
+fraud_indices = np.where(y_pred == 1)[0]
+
+print("\nDetected Fraudulent Transactions:")
+print(X_test[fraud_indices[:10]])
+
+print("\nTotal Detected Anomalies:", len(fraud_indices))
+
+# 15. Evaluate the model
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, zero_division=0))
+
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+# 16. Plot training and validation loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Autoencoder Loss')
+plt.xlabel('Epochs')
+plt.ylabel('MSE Loss')
+plt.legend()
+plt.show()
