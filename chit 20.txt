@@ -1,0 +1,64 @@
+
+import tensorflow as tf
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
+
+# 1. Load dataset
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+# 2. Normalize pixel values
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+
+# 3. Reshape images into 28x28x1
+x_train = x_train.reshape(-1, 28, 28, 1)
+x_test = x_test.reshape(-1, 28, 28, 1)
+
+# 4. Build CNN model
+model = Sequential([
+    Input(shape=(28, 28, 1)),
+
+    Conv2D(32, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+
+    Flatten(),
+
+    Dense(128, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+# 5. Compile the model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# 6. Train the model with validation data
+history = model.fit(
+    x_train, y_train,
+    epochs=5,
+    batch_size=32,
+    validation_split=0.1
+)
+
+# 7. Plot training and validation accuracy
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.show()
+
+# 8. Plot training and validation loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
